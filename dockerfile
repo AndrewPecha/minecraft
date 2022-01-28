@@ -22,7 +22,6 @@ VOLUME [ "/sys/fs/cgroup" ]
 # Install openssh-server
 RUN yum -y install openssh-server
 RUN systemctl enable sshd
-EXPOSE 22
 
 # Install Java
 ADD https://download.java.net/java/GA/jdk17/0d483333a00540d886896bac774ff48b/35/GPL/openjdk-17_linux-x64_bin.tar.gz .
@@ -34,27 +33,29 @@ ENV JAVA_HOME "/opt/jdk-17"
 ENV PATH "$PATH:$JAVA_HOME/bin"
 
 # Install mcrcon
-WORKDIR /tools
+WORKDIR /opt/minecraft/tools
 RUN yum -y install gcc git
 RUN git clone https://github.com/Tiiffi/mcrcon.git
 
-WORKDIR /tools/mcrcon
+WORKDIR /opt/minecraft/tools/mcrcon
 RUN gcc -std=gnu11 -pedantic -Wall -Wextra -O2 -s -o mcrcon mcrcon.c
 
-ENV MCRCON_HOME "/tools/mcrcon"
+ENV MCRCON_HOME "/opt/minecraft/tools/mcrcon"
 ENV MCRCON_HOST "127.0.0.1"
 ENV MCRCON_PORT "25575"
 ENV MCRCON_PASS "password"
 ENV PATH "$PATH:$MCRCON_HOME"
 
 # Setup minecraft server
-WORKDIR /server
+WORKDIR /opt/minecraft/server
 
 ADD https://launcher.mojang.com/v1/objects/125e5adf40c659fd3bce3e66e67a16bb49ecc1b9/server.jar .
 COPY eula.txt .
 COPY server.properties .
-COPY server.sh .
+COPY minecraft.service /etc/systemd/system
+RUN systemctl enable minecraft
 
-EXPOSE 25565
+# Open ports
+EXPOSE 22 25565
 
-CMD [ "/sbin/init", "/server/server.sh" ]
+CMD [ "/sbin/init" ]
