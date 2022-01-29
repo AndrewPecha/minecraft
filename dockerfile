@@ -1,9 +1,17 @@
-FROM centos:8
-ENV container docker
+FROM openjdk:17-oracle as JDK
 
-# Update image
-RUN yum -y update && yum clean all
-RUN yum -y install gcc git openssh-server
+FROM centos:8 as Builder
+RUN yum -y install gcc git
+WORKDIR /opt/minecraft/tools
+RUN git clone https://github.com/Tiiffi/mcrcon.git
+
+WORKDIR /opt/minecraft/tools/mcrcon
+RUN gcc -std=gnu11 -pedantic -Wall -Wextra -O2 -s -o mcrcon mcrcon.c
+
+FROM centos:8
+
+# Update and install packages
+RUN yum -y update && yum -y install openssh-server && yum clean all
 
 # Change password root
 RUN echo "root:docker"|chpasswd
@@ -23,22 +31,13 @@ VOLUME [ "/sys/fs/cgroup" ]
 # Install openssh-server
 RUN systemctl enable sshd
 
-# Install Java
-ADD https://download.java.net/java/GA/jdk17/0d483333a00540d886896bac774ff48b/35/GPL/openjdk-17_linux-x64_bin.tar.gz .
-RUN [ "tar", "xvf", "openjdk-17_linux-x64_bin.tar.gz" ]
-RUN [ "mv", "jdk-17", "/opt/" ]
-RUN [ "rm", "openjdk-17_linux-x64_bin.tar.gz" ]
-
+# Copy JDK
+COPY --from=JDK /usr/java/openjdk-17 /opt/jdk-17
 ENV JAVA_HOME "/opt/jdk-17"
 ENV PATH "$PATH:$JAVA_HOME/bin"
 
 # Install mcrcon
-WORKDIR /opt/minecraft/tools
-RUN git clone https://github.com/Tiiffi/mcrcon.git
-
-WORKDIR /opt/minecraft/tools/mcrcon
-RUN gcc -std=gnu11 -pedantic -Wall -Wextra -O2 -s -o mcrcon mcrcon.c
-
+COPY --from=Builder /opt/minecraft/tools/mcrcon /opt/minecraft/tools/mcrcon
 ENV MCRCON_HOME "/opt/minecraft/tools/mcrcon"
 ENV MCRCON_HOST "127.0.0.1"
 ENV MCRCON_PORT "25575"
