@@ -1,11 +1,12 @@
 FROM centos:8
 ENV container docker
 
-# Change password root
-RUN echo "root:docker"|chpasswd
-
 # Update image
 RUN yum -y update && yum clean all
+RUN yum -y install gcc git openssh-server
+
+# Change password root
+RUN echo "root:docker"|chpasswd
 
 # Setup systemd
 RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done); \
@@ -20,7 +21,6 @@ rm -f /lib/systemd/system/anaconda.target.wants/*;
 VOLUME [ "/sys/fs/cgroup" ]
 
 # Install openssh-server
-RUN yum -y install openssh-server
 RUN systemctl enable sshd
 
 # Install Java
@@ -34,7 +34,6 @@ ENV PATH "$PATH:$JAVA_HOME/bin"
 
 # Install mcrcon
 WORKDIR /opt/minecraft/tools
-RUN yum -y install gcc git
 RUN git clone https://github.com/Tiiffi/mcrcon.git
 
 WORKDIR /opt/minecraft/tools/mcrcon
@@ -52,7 +51,9 @@ WORKDIR /opt/minecraft/server
 ADD https://launcher.mojang.com/v1/objects/125e5adf40c659fd3bce3e66e67a16bb49ecc1b9/server.jar .
 COPY eula.txt .
 COPY server.properties .
-COPY minecraft.service /etc/systemd/system
+COPY minecraft.service .
+
+RUN systemctl link /opt/minecraft/server/minecraft.service
 RUN systemctl enable minecraft
 
 # Open ports
