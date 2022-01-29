@@ -10,11 +10,11 @@ RUN gcc -std=gnu11 -pedantic -Wall -Wextra -O2 -s -o mcrcon mcrcon.c
 
 FROM centos:8
 
+# Change password root
+RUN chpasswd root:docker
+
 # Update and install packages
 RUN yum -y update && yum -y install cronie openssh-server && yum clean all
-
-# Change password root
-RUN echo "root:docker"|chpasswd
 
 # Setup systemd
 RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done); \
@@ -28,44 +28,38 @@ rm -f /lib/systemd/system/anaconda.target.wants/*;
 
 VOLUME [ "/sys/fs/cgroup" ]
 
-# Install openssh-server
-RUN systemctl enable sshd
-RUN systemctl enable crond
-
-# Copy JDK
-COPY --from=JDK /usr/java/openjdk-17 /opt/jdk-17
-ENV JAVA_HOME "/opt/jdk-17"
-ENV PATH "$PATH:$JAVA_HOME/bin"
-
 # Make dirs
 RUN mkdir -p /opt/minecraft/{tools/mcrcon,server,backups}
 
+# Copy JDK
+COPY --from=JDK /usr/java/openjdk-17 /opt/jdk-17
+ENV JAVA_HOME="/opt/jdk-17"
+
 # Install mcrcon
 COPY --from=Builder /opt/minecraft/tools/mcrcon /opt/minecraft/tools/mcrcon
-ENV MCRCON_HOME "/opt/minecraft/tools/mcrcon"
-ENV MCRCON_HOST "127.0.0.1"
-ENV MCRCON_PORT "25575"
-ENV MCRCON_PASS "password"
-ENV PATH "$PATH:$MCRCON_HOME"
+ENV MCRCON_HOME="/opt/minecraft/tools/mcrcon" \
+    MCRCON_HOST="127.0.0.1" \
+    MCRCON_PORT="25575" \
+    MCRCON_PASS="password"
+
+# Update path
+ENV PATH="$PATH:$JAVA_HOME:$MCRCON_HOME"
 
 # Install auto backup script
 WORKDIR /etc/cron.d
-COPY backup-crontab .
+COPY ./cron.d/* .
 RUN chmod 0644 backup-crontab
 RUN ln -s backup-crontab /opt/minecraft/server/backup-crontab
 RUN crontab backup-crontab
 
-# Setup minecraft server
+# Install minecraft server
 WORKDIR /opt/minecraft/server
 ADD https://launcher.mojang.com/v1/objects/125e5adf40c659fd3bce3e66e67a16bb49ecc1b9/server.jar .
-COPY eula.txt .
-COPY server.properties .
-COPY minecraft.service .
-COPY backup.sh .
+COPY ./server/* .
 
-#  Start the minecraft service
+#  Start the minecraft services
 RUN systemctl link /opt/minecraft/server/minecraft.service
-RUN systemctl enable minecraft
+RUN systemctl enable sshd; systemctl enable crond; systemctl enable minecraft
 
 # Open ports
 EXPOSE 22 25565
