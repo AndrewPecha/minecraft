@@ -12,7 +12,7 @@ ProtectSystem=full
 PrivateDevices=true
 NoNewPrivileges=true
 WorkingDirectory=/opt/minecraft/server
-ExecStart=/opt/jdk-17/bin/java -server -Xmx6G -Xms2G -Xmn6G -jar server.jar nogui
+ExecStart=/opt/jdk-17/bin/java -server -Xmx6G -Xms2G -Xmn6G -XX:+UseG1GC -jar server.jar nogui
 ExecStop=/opt/minecraft/tools/mcrcon/mcrcon stop
 
 [Install]
