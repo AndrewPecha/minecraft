@@ -11,7 +11,7 @@ RUN gcc -std=gnu11 -pedantic -Wall -Wextra -O2 -s -o mcrcon mcrcon.c
 FROM centos:8
 
 # Change password root
-RUN chpasswd root:docker
+RUN echo "root:docker" | chpasswd
 
 # Update and install packages
 RUN yum -y update && yum -y install cronie openssh-server && yum clean all
